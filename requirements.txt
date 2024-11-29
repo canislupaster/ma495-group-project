@@ -1,0 +1,3 @@
+copernicusmarine
+h5py
+python-dotenv

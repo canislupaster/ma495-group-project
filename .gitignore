@@ -1,0 +1,8 @@
+build
+.cache
+*.pdf
+*.gp
+*.nc
+*.csv
+.env
+*.hdf5

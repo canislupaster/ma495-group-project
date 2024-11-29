@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "CMake: Configure (Debug)",
+			"type": "shell",
+			"command": "cmake -B ./build -DCMAKE_BUILD_TYPE=Debug",
+			"problemMatcher": []
+		},
+		{
+			"label": "CMake: Configure (Release)",
+			"type": "shell",
+			"command": "cmake -B ./build -DCMAKE_BUILD_TYPE=Release",
+			"problemMatcher": []
+		},
+		{
+			"label": "Build",
+			"group": "build",
+			"type": "shell",
+			"command": "cmake --build ./build --target main",
+			"problemMatcher": ["$gcc"]
+		},
+		{
+			"label": "Plot",
+			"type": "shell",
+			"command": "gnuplot ./plot.gp",
+			"problemMatcher": []
+		}
+	]
+}

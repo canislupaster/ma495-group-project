@@ -1,0 +1,6 @@
+[submodule "HighFive"]
+	path = HighFive
+	url = https://github.com/BlueBrain/HighFive.git
+[submodule "GSW-C"]
+	path = GSW-C
+	url = https://github.com/TEOS-10/GSW-C.git
