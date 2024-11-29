@@ -128,8 +128,8 @@ int main(int argc, char** argv) {
 		};
 	}
 
-	constexpr double dt = 10;
-	constexpr double maxt = 24*3600*10; //a week
+	constexpr double dt = 1;
+	constexpr double maxt = 24*3600; //a day
 	constexpr int log_every = 100;
 	constexpr double noise_update_second = 0.001;
 	constexpr double g = 9.81;
