@@ -7,7 +7,7 @@ set(CMAKE_COLOR_DIAGNOSTICS ON)
 add_compile_options(-Wall -Wextra -Wpedantic -Wextra -Wshadow -Wno-sign-compare)
 
 if (CMAKE_BUILD_TYPE MATCHES Release)
-    add_compile_options(-Ofast)
+    add_compile_options(-O3)
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)

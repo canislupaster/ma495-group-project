@@ -139,8 +139,8 @@ int main(int argc, char** argv) {
 	auto const& geo = Geodesic::WGS84();
 
 	minstd_rand rng(random_device{}());
-	normal_distribution<> density_dist(0,2);
 	normal_distribution<> u_dist(0,0.1);
+	normal_distribution<> down_dist(0,0.01);
 	normal_distribution<> v_dist(0,0.1);
 
 	out<<"t,lat,lng,depth,east,north\n"<<fixed<<setprecision(6);
@@ -159,9 +159,9 @@ int main(int argc, char** argv) {
 		bool crashed=false, exited=false;
 
 		double cur_lat = params.lat, cur_lng = params.lng, cur_depth = params.depth;
-		double cur_east = params.east, cur_north = params.north;
+		double cur_down = 0, cur_east = params.east, cur_north = params.north;
 
-		Cell noise {false, density_dist(rng), u_dist(rng), v_dist(rng)};
+		double down_noise=down_dist(rng), u_noise=u_dist(rng), v_noise=v_dist(rng);
 
 		int depth_i = depth_idx.upper_bound(cur_depth)->second;
 		int lat_i = lat_idx.upper_bound(cur_lat)->second;
@@ -181,10 +181,12 @@ int main(int argc, char** argv) {
 			iter(lat_i, lats, cur_lat);
 			iter(lng_i, lngs, cur_lng);
 
+			cur_depth += dt*cur_down;
+
 			double ang = atan2(cur_east, cur_north)*180/M_PI;
 			if (!isnan(ang)) {
 				if (ang<0) ang=360-ang;
-				geo.Direct(cur_lat, cur_lng, ang, hypot(cur_east, cur_north), cur_lat, cur_lng);
+				geo.Direct(cur_lat, cur_lng, ang, dt*hypot(cur_east, cur_north), cur_lat, cur_lng);
 			}
 
 			if (depth_i<=0 || depth_i>=num_depth) {
@@ -196,11 +198,11 @@ int main(int argc, char** argv) {
 			}
 
 			double a = noise_update_second*dt, b=1-a;
-			noise.density = a*density_dist(rng) + b*noise.density;
-			noise.u = a*u_dist(rng) + b*noise.u;
-			noise.v = a*v_dist(rng) + b*noise.v;
+			down_noise = a*down_dist(rng) + b*down_noise;
+			u_noise = a*u_dist(rng) + b*u_noise;
+			v_noise = a*v_dist(rng) + b*v_noise;
 
-			Cell interpolated = noise;
+			Cell interpolated = {.density=0, .u=u_noise, .v=v_noise};
 			double tot = (depths[depth_i]-depths[depth_i-1])
 				*(lats[lat_i]-lats[lat_i-1])
 				*(lngs[lng_i]-lngs[lng_i-1]);
@@ -224,9 +226,20 @@ int main(int argc, char** argv) {
 
 			if (crashed) break;
 
-			cur_depth += dt*g*(params.mass - interpolated.density*params.volume)/params.mass;
-			cur_north += dt*( sgn(interpolated.v - cur_north)*interpolated.density*(interpolated.v - cur_north)*(interpolated.v-cur_north)*params.drag*params.area/2 )/params.mass;
-			cur_east += dt*( sgn(interpolated.u - cur_east)*interpolated.density*(interpolated.u - cur_east)*(interpolated.u - cur_east)*params.drag*params.area/2 )/params.mass;
+			double mul = dt/params.mass;
+
+			cur_down += mul*(
+				g*(params.mass - interpolated.density*params.volume)
+				+ sgn(down_noise - cur_down)*interpolated.density*(down_noise - cur_down)*(down_noise - cur_down)*params.drag*params.area/2
+			);
+
+			cur_north += mul*(
+				sgn(interpolated.v - cur_north)*interpolated.density*(interpolated.v - cur_north)*(interpolated.v-cur_north)*params.drag*params.area/2
+			);
+
+			cur_east += mul*(
+				sgn(interpolated.u - cur_east)*interpolated.density*(interpolated.u - cur_east)*(interpolated.u - cur_east)*params.drag*params.area/2
+			);
 		}
 
 		out<<"\n";
