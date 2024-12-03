@@ -42,13 +42,26 @@ struct EpsCmp {
 };
 
 struct Parameters {
-	double lat,lng,depth,east,north,mass,volume;
+	double lat,lng,depth,east,north,down,mass,volume;
 	double drag, area;
 };
 
 double sgn(double x) {
 	return x>eps ? 1 : x < -eps ? -1 : 0;
 }
+
+constexpr double inf = numeric_limits<double>::infinity();
+
+struct BBox {
+	array<double,3> b_min,b_max;
+	BBox() {
+		b_min.fill(inf), b_max.fill(-inf);
+	}
+	void add(array<double,3> pos) {
+		for (int i=0; i<3; i++) b_min[i]=min(pos[i], b_min[i]);
+		for (int i=0; i<3; i++) b_max[i]=max(pos[i], b_max[i]);
+	}
+};
 
 int main(int argc, char** argv) {
 	stringstream ss;
@@ -61,6 +74,7 @@ int main(int argc, char** argv) {
 		.depth=json_params["depth"],
 		.east=json_params["velocityEast"],
 		.north=json_params["velocityNorth"],
+		.down=json_params["velocityDown"],
 		.mass=json_params["mass"],
 		.volume=json_params["volume"],
 		.drag=json_params["drag"],
@@ -87,8 +101,8 @@ int main(int argc, char** argv) {
 		int i=0;
 		for (auto& [a,b]: *map) b=i++;
 
-		map->insert({-numeric_limits<double>::infinity(), -1});
-		map->insert({numeric_limits<double>::infinity(), -1});
+		map->insert({-inf, -1});
+		map->insert({inf, -1});
 	}
 
 	int num_lat=lats.size(), num_lng=lngs.size(), num_depth=depths.size();
@@ -128,8 +142,8 @@ int main(int argc, char** argv) {
 		};
 	}
 
-	constexpr double dt = 1;
-	constexpr double maxt = 24*3600; //a day
+	constexpr double dt = 5;
+	constexpr double maxt = 24*3600*5; //a day
 	constexpr int log_every = 100;
 	constexpr double noise_update_second = 0.001;
 	constexpr double g = 9.81;
@@ -151,7 +165,37 @@ int main(int argc, char** argv) {
 			else if (idx>0 && vs[idx-1]>target) idx--;
 			else break;
 		}
+		
+		return idx<=0 || idx>=vs.size();
 	};
+
+	auto at_interp = [&](int depth_i, int lat_i, int lng_i, double cur_lat, double cur_lng, double cur_depth, Cell& interpolated) -> bool {
+		double tot = (depths[depth_i]-depths[depth_i-1])
+			*(lats[lat_i]-lats[lat_i-1])
+			*(lngs[lng_i]-lngs[lng_i-1]);
+
+		for (int z=0; z<=1; z++) {
+			for (int y=0; y<=1; y++) {
+				for (int x=0; x<=1; x++) {
+					auto& cell = at(lat_i+x, lng_i+y, depth_i+z);
+					if (!cell.exists) return true;
+
+					double coeff = (z ? depths[depth_i]-cur_depth : cur_depth-depths[depth_i-1])
+						*(x ? lats[lat_i]-cur_lat : cur_lat-lats[lat_i-1])
+						*(y ? lngs[lng_i]-cur_lng : cur_lng-lngs[lng_i-1])/tot;
+
+					interpolated.density += coeff*cell.density;
+					interpolated.u += coeff*cell.u;
+					interpolated.v += coeff*cell.v;
+				}
+			}
+		}
+
+		return false;
+	};
+
+
+	BBox box;
 
 	for (int sim_i=0; sim_i<1000; sim_i++) {
 		double t=0;
@@ -159,7 +203,7 @@ int main(int argc, char** argv) {
 		bool crashed=false, exited=false;
 
 		double cur_lat = params.lat, cur_lng = params.lng, cur_depth = params.depth;
-		double cur_down = 0, cur_east = params.east, cur_north = params.north;
+		double cur_down = params.down, cur_east = params.east, cur_north = params.north;
 
 		double down_noise=down_dist(rng), u_noise=u_dist(rng), v_noise=v_dist(rng);
 
@@ -173,13 +217,11 @@ int main(int argc, char** argv) {
 				for (int prop_i=0; prop_i<props.size(); prop_i++) {
 					out<<*(props.begin()+prop_i)<<",\n"[prop_i==props.size()-1];
 				}
+
+				box.add({cur_lat,cur_lng,cur_depth});
 			}
 
 			t+=dt;
-
-			iter(depth_i, depths, cur_depth);
-			iter(lat_i, lats, cur_lat);
-			iter(lng_i, lngs, cur_lng);
 
 			cur_depth += dt*cur_down;
 
@@ -189,11 +231,11 @@ int main(int argc, char** argv) {
 				geo.Direct(cur_lat, cur_lng, ang, dt*hypot(cur_east, cur_north), cur_lat, cur_lng);
 			}
 
-			if (depth_i<=0 || depth_i>=num_depth) {
+			if (iter(depth_i, depths, cur_depth)) {
 				crashed=true; break;
 			}
-
-			if (lat_i<=0 || lng_i<=0 || lat_i>=num_lat || lng_i>=num_lng) {
+			if (iter(lat_i, lats, cur_lat)
+				|| iter(lng_i, lngs, cur_lng)) {
 				exited=true; break;
 			}
 
@@ -203,28 +245,10 @@ int main(int argc, char** argv) {
 			v_noise = a*v_dist(rng) + b*v_noise;
 
 			Cell interpolated = {.density=0, .u=u_noise, .v=v_noise};
-			double tot = (depths[depth_i]-depths[depth_i-1])
-				*(lats[lat_i]-lats[lat_i-1])
-				*(lngs[lng_i]-lngs[lng_i-1]);
-
-			for (int z=0; z<=1; z++) {
-				for (int y=0; y<=1; y++) {
-					for (int x=0; x<=1; x++) {
-						auto& cell = at(lat_i+x, lng_i+y, depth_i+z);
-						if (!cell.exists) crashed=true;
-
-						double coeff = (z ? depths[depth_i]-cur_depth : cur_depth-depths[depth_i-1])
-							*(x ? lats[lat_i]-cur_lat : cur_lat-lats[lat_i-1])
-							*(y ? lngs[lng_i]-cur_lng : cur_lng-lngs[lng_i-1])/tot;
-
-						interpolated.density += coeff*cell.density;
-						interpolated.u += coeff*cell.u;
-						interpolated.v += coeff*cell.v;
-					}
-				}
+			if (at_interp(depth_i,lat_i,lng_i,cur_lat,cur_lng,cur_depth,interpolated)) {
+				crashed=true;
+				break;
 			}
-
-			if (crashed) break;
 
 			double mul = dt/params.mass;
 
@@ -247,5 +271,27 @@ int main(int argc, char** argv) {
 		cout<<"done simulating #"<<sim_i<<" to t="<<t<<"\n";
 		if (crashed) cout<<"crashed into ocean floor or ran aground\n";
 		else if (exited) cout<<"exited bounds\n";
+	}
+
+	cout<<"outputting cells in bounding box\n";
+
+	ofstream cell_out("./cells.csv");
+	cell_out<<"lat,lng,depth,north,east,density\n";
+
+	int depth_i=0, lat_i=0, lng_i=0;
+	constexpr double depth_inc = 100, lat_inc=0.01, lng_inc=lat_inc/3;
+
+	for (double depth=max(box.b_min[2], depths[0]); depth<=min(box.b_max[2], depths.back()); depth+=depth_inc) {
+		iter(depth_i, depths, depth);
+		for (double lat=max(box.b_min[0], lats[0]); lat<=min(box.b_max[0], lats.back()); lat+=lat_inc) {
+			iter(lat_i, lats, lat);
+			for (double lng=max(box.b_min[1], lngs[0]); lng<=min(box.b_max[1], lngs.back()); lng+=lng_inc) {
+				iter(lng_i, lngs, lng);
+				Cell interp {0,0,0,0};
+				if (!at_interp(depth_i,lat_i,lng_i,lat,lng,depth,interp)) {
+					cell_out<<lat<<","<<lng<<","<<depth<<","<<interp.v<<","<<interp.u<<","<<interp.density<<"\n";
+				}
+			}
+		}
 	}
 }

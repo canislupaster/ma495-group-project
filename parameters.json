@@ -1,12 +1,13 @@
 {
 	"data": "data.hdf5",
-	"lat": 38.77449484758417, 
-	"lng": 18.379614061175996,
-	"depth": 400,
+	"lat": 36.599332053653946,
+	"lng": 17.69151823748493,
+	"depth": 500,
 	"velocityEast": 0,
 	"velocityNorth": 0,
+	"velocityDown": 0,
 	"mass": 10432,
-	"volume": 10.10,
-	"drag": 0.5,
-	"area": 5.57113061134
+	"volume": 10.02,
+	"drag": 0.45,
+	"area": 5.619125
 }
