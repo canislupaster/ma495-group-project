@@ -1,7 +1,7 @@
 {
 	"data": "data.hdf5",
-	"lat": 36.599332053653946,
-	"lng": 17.69151823748493,
+	"lat": 38.16150600311849,
+	"lng": 19.679382507627246,
 	"depth": 500,
 	"velocityEast": 0,
 	"velocityNorth": 0,
@@ -9,5 +9,13 @@
 	"mass": 10432,
 	"volume": 10.02,
 	"drag": 0.45,
-	"area": 5.619125
+	"area": 5.619125,
+
+	"rov_lat": 38.16150600311849,
+	"rov_lng": 19.679382507627246,
+	"rov_depth": 50,
+	"rov_max_horizontal": 3,
+	"rov_max_vertical": 2,
+	"rov_search_radius": 200,
+	"rov_start_time": 45000
 }

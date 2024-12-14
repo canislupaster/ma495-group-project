@@ -4,3 +4,6 @@
 [submodule "GSW-C"]
 	path = GSW-C
 	url = https://github.com/TEOS-10/GSW-C.git
+[submodule "nanoflann"]
+	path = nanoflann
+	url = https://github.com/jlblancoc/nanoflann.git

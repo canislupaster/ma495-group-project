@@ -27,4 +27,4 @@ FetchContent_MakeAvailable(json)
 
 add_executable(main main.cpp)
 target_link_libraries(main HDF5::HDF5 ${GeographicLib_LIBRARIES} gsw nlohmann_json::nlohmann_json)
-target_include_directories(main PRIVATE HighFive/include ${GeographicLib_INCLUDE_DIRS} ./GSW-C)
+target_include_directories(main PRIVATE HighFive/include ${GeographicLib_INCLUDE_DIRS} ./GSW-C ./nanoflann/include)

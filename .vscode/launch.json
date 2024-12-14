@@ -20,5 +20,20 @@
 			"cwd": "${workspaceFolder}",
 			"preLaunchTask": "Build"
 		},
+		{
+			"request": "launch",
+			"name": "GeoJSON",
+			"type": "node",
+			"program": "${workspaceFolder}/proc/main.ts",
+			"cwd": "${workspaceFolder}/proc",
+			"env": {},
+			"runtimeExecutable": "deno",
+			"runtimeArgs": [
+				"run",
+				"--inspect-wait",
+				"--allow-all"
+			],
+			"attachSimplePort": 9229
+		}
 	]
 }
